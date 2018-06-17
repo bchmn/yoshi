@@ -7,7 +7,7 @@ const webpackDevMiddleware = require('webpack-dev-middleware');
 const hotClient = require('webpack-hot-client');
 const { decorate } = require('./server-api');
 const { shouldRunWebpack, logStats, normalizeEntries } = require('./utils');
-const { getListOfEntries } = require('../../utils');
+const { getListOfEntries, getProcessOnPort } = require('../../utils');
 
 module.exports = ({
   port = '3000',
@@ -22,7 +22,28 @@ module.exports = ({
   configuredEntry,
   defaultEntry,
 } = {}) => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    const processOnPort = await getProcessOnPort(parseInt(port));
+
+    if (processOnPort) {
+      const currentCwd = process.cwd();
+
+      if (currentCwd !== processOnPort.cwd) {
+        return reject(
+          new Error(
+            `Unable to run cdn! port ${port} is already in use by another process in another project (pid=${
+              processOnPort.pid
+            }, path=${processOnPort.cwd})`,
+          ),
+        );
+      } else {
+        console.log(`\tcdn is already running on ${port}, skipping...`);
+        return resolve();
+      }
+    }
+
+    console.log(`\tRunning cdn on port ${port}...`);
+
     let middlewares = [];
 
     if (webpackConfigPath) {

@@ -2,12 +2,112 @@ const expect = require('chai').expect;
 const tp = require('./helpers/test-phases');
 const fx = require('./helpers/fixtures');
 const { outsideTeamCity, insideTeamCity } = require('./helpers/env-variables');
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const childProcess = require('child_process');
 
 describe('Aggregator: Test', () => {
+  describe('CDN Port', () => {
+    let test;
+    let server;
+    let child;
+
+    beforeEach(() => (test = tp.create()));
+    afterEach(() => test.teardown());
+
+    afterEach(done => {
+      if (server) {
+        server.close(() => {
+          server = null;
+          done();
+        });
+      } else {
+        done();
+      }
+    });
+
+    afterEach(done => {
+      if (child) {
+        child.on('exit', () => {
+          done();
+          child = null;
+        });
+        child.kill('SIGINT');
+      } else {
+        done();
+      }
+    });
+
+    function wait(time) {
+      return () => new Promise(resolve => setTimeout(resolve, time));
+    }
+
+    const executionOptions = port => ({
+      'test/component.spec.js': 'it.only("pass", () => 1);',
+      'package.json': fx.packageJson({
+        servers: {
+          cdn: {
+            port,
+          },
+        },
+      }),
+    });
+
+    it('should throw an error when CDN port is in use by another directory', function(done) {
+      const TEST_PORT = 3335;
+      server = http.createServer();
+      server.listen(TEST_PORT, 'localhost', () => {
+        const res = test
+          .setup(executionOptions(TEST_PORT))
+          .verbose()
+          .execute('test', undefined, outsideTeamCity);
+
+        expect(res.code).to.equal(1);
+        expect(
+          res.stderr.includes(
+            `port ${TEST_PORT} is already in use by another process`,
+          ),
+        ).to.equal(true);
+        done();
+      });
+    });
+
+    it('should skip cdn startup when yoshi is already running in the same path', async function() {
+      const TEST_PORT = 3336;
+      test.setup(executionOptions(TEST_PORT)).verbose();
+      const testPath = test.tmp;
+      const toExecute = `
+          const http = require('http');
+          const server = http.createServer();
+          server.listen(${TEST_PORT}, 'localhost');
+
+          process.on('SIGINT', () => {
+            server.close(() => {
+              process.exit();
+            });
+          });
+        `;
+
+      fs.writeFileSync(path.join(testPath, 'use-port.js'), toExecute, {
+        encoding: 'utf-8',
+      });
+      child = childProcess.exec('node use-port.js', { cwd: testPath });
+      await wait(500);
+      const res = test.execute('test', undefined, outsideTeamCity);
+
+      expect(res.code).to.equal(0);
+      expect(
+        res.stdout.includes(`cdn is already running on ${TEST_PORT}, skipping`),
+      ).to.equal(true);
+    });
+  });
+
   describe('defaults', () => {
     let test;
     beforeEach(() => (test = tp.create()));
     afterEach(() => test.teardown());
+
     it('should pass with exit code 0 with mocha as default', function() {
       this.timeout(40000);
       const res = test
