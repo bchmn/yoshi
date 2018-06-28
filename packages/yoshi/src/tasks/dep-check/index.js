@@ -7,30 +7,19 @@ module.exports = ({ cwd = process.cwd() } = {}) => {
     .rule('{wix-style-react}')
     .rule('wix-bootstrap-*', { patch: 5 })
     .checkRules()
-    .then(
-      ([
-        yoshiOutdated,
-        wixStyleReactOutdated,
-        wsrYoshiOutdated,
-        bootstrapOutdated,
-      ]) => {
-        if (yoshiOutdated.length) {
-          return fail(yoshiOutdated);
-        }
+    .then(([wixStyleReactOutdated, wsrOutdated, bootstrapOutdated]) => {
+      if (wixStyleReactOutdated.length) {
+        return fail(wixStyleReactOutdated);
+      }
 
-        if (wixStyleReactOutdated.length) {
-          return fail(wixStyleReactOutdated);
-        }
+      if (wsrOutdated.length) {
+        return warn(wsrOutdated);
+      }
 
-        if (wsrYoshiOutdated.length) {
-          return warn(wsrYoshiOutdated);
-        }
-
-        if (bootstrapOutdated.length) {
-          return warn(bootstrapOutdated);
-        }
-      },
-    );
+      if (bootstrapOutdated.length) {
+        return warn(bootstrapOutdated);
+      }
+    });
 };
 
 function fail(deps) {
