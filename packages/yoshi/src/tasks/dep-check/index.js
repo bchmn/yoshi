@@ -4,16 +4,16 @@ const depkeeper = require('depkeeper');
 module.exports = ({ cwd = process.cwd() } = {}) => {
   return depkeeper({ cwd })
     .rule('wix-style-react', { major: 2 })
-    .rule('{wix-style-react}')
+    .rule('{yoshi,wix-style-react}')
     .rule('wix-bootstrap-*', { patch: 5 })
     .checkRules()
-    .then(([wixStyleReactOutdated, wsrOutdated, bootstrapOutdated]) => {
+    .then(([wixStyleReactOutdated, wsrYoshiOutdated, bootstrapOutdated]) => {
       if (wixStyleReactOutdated.length) {
         return fail(wixStyleReactOutdated);
       }
 
-      if (wsrOutdated.length) {
-        return warn(wsrOutdated);
+      if (wsrYoshiOutdated.length) {
+        return warn(wsrYoshiOutdated);
       }
 
       if (bootstrapOutdated.length) {
