@@ -3,9 +3,8 @@ const depkeeper = require('depkeeper');
 
 module.exports = ({ cwd = process.cwd() } = {}) => {
   return depkeeper({ cwd })
-    .rule('yoshi', { major: 1 })
     .rule('wix-style-react', { major: 2 })
-    .rule('{yoshi,wix-style-react}')
+    .rule('{wix-style-react}')
     .rule('wix-bootstrap-*', { patch: 5 })
     .checkRules()
     .then(
