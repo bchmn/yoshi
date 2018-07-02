@@ -1,6 +1,6 @@
 const express = require('express');
 const { join } = require('path');
-const { exec } = require('child_process');
+const { fork } = require('child_process');
 const { writeFileSync } = require('fs');
 
 module.exports = {
@@ -10,10 +10,13 @@ module.exports = {
     });
   },
   takePortFromAnotherProcess(cwd, port) {
-    const toExecute = `
+    return new Promise(resolve => {
+      const toExecute = `
           const http = require('http');
           const server = http.createServer();
-          server.listen(${port}, 'localhost');
+          server.listen(${port}, 'localhost', () => {
+            process.send({});
+          });
 
           process.on('SIGINT', () => {
             server.close(() => {
@@ -22,10 +25,12 @@ module.exports = {
           });
         `;
 
-    writeFileSync(join(cwd, 'use-port.js'), toExecute, {
-      encoding: 'utf-8',
-    });
+      writeFileSync(join(cwd, 'use-port.js'), toExecute, {
+        encoding: 'utf-8',
+      });
 
-    return exec('node use-port.js', { cwd });
+      const child = fork('use-port.js', { cwd });
+      child.on('message', () => resolve(child));
+    });
   },
 };

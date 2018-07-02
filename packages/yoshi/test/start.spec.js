@@ -468,7 +468,7 @@ describe('Aggregator: Start', () => {
     describe('when the default port is taken', () => {
       let server;
 
-      beforeEach(() => (server = takePort(3000)));
+      beforeEach(async () => (server = await takePort(3000)));
       afterEach(() => server.close());
 
       it('it should use the next available port', () => {

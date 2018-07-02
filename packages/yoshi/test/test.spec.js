@@ -39,10 +39,6 @@ describe('Aggregator: Test', () => {
       }
     });
 
-    function wait(time) {
-      return () => new Promise(resolve => setTimeout(resolve, time));
-    }
-
     const executionOptions = port => ({
       'test/component.spec.js': 'it.only("pass", () => 1);',
       'package.json': fx.packageJson({
@@ -74,8 +70,7 @@ describe('Aggregator: Test', () => {
       const TEST_PORT = 3336;
       test.setup(executionOptions(TEST_PORT));
       const testPath = test.tmp;
-      child = takePortFromAnotherProcess(testPath, TEST_PORT);
-      await wait(500);
+      child = await takePortFromAnotherProcess(testPath, TEST_PORT);
       const res = test.execute('test', undefined, outsideTeamCity);
 
       expect(res.code).to.equal(0);
