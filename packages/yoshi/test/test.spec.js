@@ -2,10 +2,10 @@ const expect = require('chai').expect;
 const tp = require('./helpers/test-phases');
 const fx = require('./helpers/fixtures');
 const { outsideTeamCity, insideTeamCity } = require('./helpers/env-variables');
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const childProcess = require('child_process');
+const {
+  takePort,
+  takePortFromAnotherProcess,
+} = require('./helpers/http-helpers');
 
 describe('Aggregator: Test', () => {
   describe('CDN Port', () => {
@@ -56,50 +56,32 @@ describe('Aggregator: Test', () => {
 
     it('should throw an error when CDN port is in use by another directory', function(done) {
       const TEST_PORT = 3335;
-      server = http.createServer();
-      server.listen(TEST_PORT, 'localhost', () => {
+      takePort(TEST_PORT).then(createdServer => {
+        server = createdServer;
         const res = test
           .setup(executionOptions(TEST_PORT))
-          .verbose()
           .execute('test', undefined, outsideTeamCity);
 
         expect(res.code).to.equal(1);
-        expect(
-          res.stderr.includes(
-            `port ${TEST_PORT} is already in use by another process`,
-          ),
-        ).to.equal(true);
+        expect(res.stderr).to.include(
+          `port ${TEST_PORT} is already in use by another process`,
+        );
         done();
       });
     });
 
     it('should skip cdn startup when yoshi is already running in the same path', async function() {
       const TEST_PORT = 3336;
-      test.setup(executionOptions(TEST_PORT)).verbose();
+      test.setup(executionOptions(TEST_PORT));
       const testPath = test.tmp;
-      const toExecute = `
-          const http = require('http');
-          const server = http.createServer();
-          server.listen(${TEST_PORT}, 'localhost');
-
-          process.on('SIGINT', () => {
-            server.close(() => {
-              process.exit();
-            });
-          });
-        `;
-
-      fs.writeFileSync(path.join(testPath, 'use-port.js'), toExecute, {
-        encoding: 'utf-8',
-      });
-      child = childProcess.exec('node use-port.js', { cwd: testPath });
+      child = takePortFromAnotherProcess(testPath, TEST_PORT);
       await wait(500);
       const res = test.execute('test', undefined, outsideTeamCity);
 
       expect(res.code).to.equal(0);
-      expect(
-        res.stdout.includes(`cdn is already running on ${TEST_PORT}, skipping`),
-      ).to.equal(true);
+      expect(res.stdout).to.include(
+        `cdn is already running on ${TEST_PORT}, skipping`,
+      );
     });
   });
 

@@ -9,7 +9,7 @@ const { decorate } = require('./server-api');
 const { shouldRunWebpack, logStats, normalizeEntries } = require('./utils');
 const { getListOfEntries, getProcessOnPort } = require('../../utils');
 
-module.exports = ({
+module.exports = async ({
   port = '3000',
   ssl,
   hmr = true,
@@ -22,98 +22,97 @@ module.exports = ({
   configuredEntry,
   defaultEntry,
 } = {}) => {
-  return new Promise(async (resolve, reject) => {
-    const processOnPort = await getProcessOnPort(parseInt(port));
+  const processOnPort = await getProcessOnPort(parseInt(port));
 
-    if (processOnPort) {
-      const currentCwd = process.cwd();
+  if (processOnPort) {
+    const currentCwd = process.cwd();
 
-      if (currentCwd !== processOnPort.cwd) {
-        return reject(
-          new Error(
-            `Unable to run cdn! port ${port} is already in use by another process in another project (pid=${
-              processOnPort.pid
-            }, path=${processOnPort.cwd})`,
-          ),
-        );
-      } else {
-        console.log(`\tcdn is already running on ${port}, skipping...`);
-        return resolve();
-      }
+    if (currentCwd !== processOnPort.cwd) {
+      throw new Error(
+        `Unable to run cdn! port ${port} is already in use by another process in another project (pid=${
+          processOnPort.pid
+        }, path=${processOnPort.cwd})`,
+      );
+    } else {
+      console.log(`\tcdn is already running on ${port}, skipping...`);
+
+      return;
     }
+  }
 
-    console.log(`\tRunning cdn on port ${port}...`);
+  console.log(`\tRunning cdn on port ${port}...`);
 
-    let middlewares = [];
+  let middlewares = [];
 
-    if (webpackConfigPath) {
-      const getConfig = require(webpackConfigPath);
-      const webpackConfig = getConfig({
-        debug: true,
-        disableModuleConcatenation: true,
-      });
+  if (webpackConfigPath) {
+    const getConfig = require(webpackConfigPath);
+    const webpackConfig = getConfig({
+      debug: true,
+      disableModuleConcatenation: true,
+    });
 
-      if (shouldRunWebpack(webpackConfig, defaultEntry, configuredEntry)) {
-        webpackConfig.output.publicPath = publicPath;
+    if (shouldRunWebpack(webpackConfig, defaultEntry, configuredEntry)) {
+      webpackConfig.output.publicPath = publicPath;
 
-        if (transformHMRRuntime) {
-          const entryFiles = getListOfEntries(configuredEntry || defaultEntry);
-          webpackConfig.module.rules.forEach(rule => {
-            if (Array.isArray(rule.use)) {
-              rule.use = rule.use.map(useItem => {
-                if (useItem === 'babel-loader') {
-                  useItem = { loader: 'babel-loader' };
+      if (transformHMRRuntime) {
+        const entryFiles = getListOfEntries(configuredEntry || defaultEntry);
+        webpackConfig.module.rules.forEach(rule => {
+          if (Array.isArray(rule.use)) {
+            rule.use = rule.use.map(useItem => {
+              if (useItem === 'babel-loader') {
+                useItem = { loader: 'babel-loader' };
+              }
+              if (useItem.loader === 'babel-loader') {
+                if (!useItem.options) {
+                  useItem.options = {};
                 }
-                if (useItem.loader === 'babel-loader') {
-                  if (!useItem.options) {
-                    useItem.options = {};
-                  }
-                  if (!useItem.options.plugins) {
-                    useItem.options.plugins = [];
-                  }
-                  useItem.options.plugins.push(
-                    require.resolve('react-hot-loader/babel'),
-                    [
-                      path.resolve(
-                        __dirname,
-                        '../../plugins/babel-plugin-transform-hmr-runtime',
-                      ),
-                      { entryFiles },
-                    ],
-                  );
+                if (!useItem.options.plugins) {
+                  useItem.options.plugins = [];
                 }
-                return useItem;
-              });
-            }
-          });
-        }
-
-        webpackConfig.entry = normalizeEntries(webpackConfig.entry);
-
-        const compiler = webpack(webpackConfig);
-
-        // If both hmr and reload are false it makes this module fairly useless
-        // https://github.com/webpack-contrib/webpack-hot-client#reload
-        if (liveReload || hmr) {
-          hotClient(compiler, {
-            reload: liveReload,
-            hot: Boolean(hmr),
-            logLevel: 'warn',
-          });
-        }
-
-        logStats(compiler);
-
-        middlewares = [webpackDevMiddleware(compiler, { logLevel: 'silent' })];
+                useItem.options.plugins.push(
+                  require.resolve('react-hot-loader/babel'),
+                  [
+                    path.resolve(
+                      __dirname,
+                      '../../plugins/babel-plugin-transform-hmr-runtime',
+                    ),
+                    { entryFiles },
+                  ],
+                );
+              }
+              return useItem;
+            });
+          }
+        });
       }
+
+      webpackConfig.entry = normalizeEntries(webpackConfig.entry);
+
+      const compiler = webpack(webpackConfig);
+
+      // If both hmr and reload are false it makes this module fairly useless
+      // https://github.com/webpack-contrib/webpack-hot-client#reload
+      if (liveReload || hmr) {
+        hotClient(compiler, {
+          reload: liveReload,
+          hot: Boolean(hmr),
+          logLevel: 'warn',
+        });
+      }
+
+      logStats(compiler);
+
+      middlewares = [webpackDevMiddleware(compiler, { logLevel: 'silent' })];
     }
+  }
 
-    const app = express();
+  const app = express();
 
-    decorate({ app, middlewares, host, port, statics });
+  decorate({ app, middlewares, host, port, statics });
 
-    const serverFactory = ssl ? httpsServer(app) : app;
+  const serverFactory = ssl ? httpsServer(app) : app;
 
+  return new Promise((resolve, reject) => {
     serverFactory.listen(port, host, err => (err ? reject(err) : resolve()));
   });
 };
