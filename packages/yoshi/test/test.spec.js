@@ -50,20 +50,17 @@ describe('Aggregator: Test', () => {
       }),
     });
 
-    it('should throw an error when CDN port is in use by another directory', function(done) {
+    it('should throw an error when CDN port is in use by another directory', async function() {
       const TEST_PORT = 3335;
-      takePort(TEST_PORT).then(createdServer => {
-        server = createdServer;
-        const res = test
-          .setup(executionOptions(TEST_PORT))
-          .execute('test', undefined, outsideTeamCity);
+      server = await takePort(TEST_PORT);
+      const res = test
+        .setup(executionOptions(TEST_PORT))
+        .execute('test', undefined, outsideTeamCity);
 
-        expect(res.code).to.equal(1);
-        expect(res.stderr).to.include(
-          `port ${TEST_PORT} is already in use by another process`,
-        );
-        done();
-      });
+      expect(res.code).to.equal(1);
+      expect(res.stderr).to.include(
+        `port ${TEST_PORT} is already in use by another process`,
+      );
     });
 
     it('should skip cdn startup when yoshi is already running in the same path', async function() {
