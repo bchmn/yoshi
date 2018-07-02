@@ -189,14 +189,14 @@ module.exports.shouldTransformHMRRuntime = () => {
 
 function getProcessIdOnPort(port) {
   return childProcess
-    .execSync('lsof -i:' + port + ' -P -t -sTCP:LISTEN', { encoding: 'utf-8' })
+    .execSync(`lsof -i:${port} -P -t -sTCP:LISTEN`, { encoding: 'utf-8' })
     .split('\n')[0]
     .trim();
 }
 
 function getDirectoryOfProcessById(processId) {
   return childProcess
-    .execSync('lsof -p ' + processId + " | grep cwd | awk '{print $9}'", {
+    .execSync(`lsof -p ${processId} | grep cwd | awk '{print $9}'`, {
       encoding: 'utf-8',
     })
     .trim();
