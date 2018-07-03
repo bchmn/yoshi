@@ -330,8 +330,8 @@ For more info, you can read the [webpack docs](https://webpack.js.org/configurat
 
 #### yoshi.resolveAlias
 
-Allows to use the Webpack Resolve Alias feature.
-The configuration object is the same as in webpack, note that the paths are relative to webpacks context.
+Allows you to use the Webpack Resolve Alias feature.
+The configuration object is the same as in Webpack, note that the paths are relative to Webpacks context.
 For more info, you can read the [webpack docs](https://webpack.js.org/configuration/resolve/#resolve-alias).
 
 ## FAQ
